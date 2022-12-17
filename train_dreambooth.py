@@ -428,10 +428,6 @@ def get_full_repo_name(model_id: str, organization: Optional[str] = None, token:
     else:
         return f"{organization}/{model_id}"
 
-def get_components_from_pipeline(model_name_or_path):
-    pipeline = StableDiffusionDepth2ImgPipeline.from_pretrained("stabilityai/stable-diffusion-2-depth")
-    return pipeline.feature_extractor, pipeline.depth_estimator
-
 def create_depth_images(paths, pretrained_model_name_or_path, accelerator, unet, text_encoder):
     pipeline = DiffusionPipeline.from_pretrained(
             pretrained_model_name_or_path,
@@ -574,8 +570,7 @@ def main(args):
         subfolder="unet",
         revision=args.revision,
     )
-    feature_extractor, depth_estimator = get_components_from_pipeline(args.pretrained_model_name_or_path)
-
+    
     if is_xformers_available():
         try:
             unet.enable_xformers_memory_efficient_attention()
