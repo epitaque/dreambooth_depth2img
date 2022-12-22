@@ -329,6 +329,7 @@ class DreamBoothDataset(Dataset):
         self.depth_image_transforms = transforms.Compose(
             [
                 transforms.Resize(size // self.vae_scale_factor, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor()
             ]
         )
