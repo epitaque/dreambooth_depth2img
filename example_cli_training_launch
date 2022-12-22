@@ -1,0 +1,21 @@
+accelerate launch ^
+--mixed_precision=bf16 ^
+--num_processes=1 ^
+--num_machines=1 ^
+train_dreambooth.py ^
+--mixed_precision=bf16 ^
+--pretrained_model_name_or_path=stabilityai/stable-diffusion-2-depth  ^
+--pretrained_txt2img_model_name_or_path="stabilityai/stable-diffusion-2-1-base" ^
+--train_text_encoder ^
+--instance_data_dir=data/input ^
+--class_data_dir=data/style ^
+--output_dir=data/output ^
+--instance_prompt="<your_instance_prompt>" ^
+--resolution=512 ^
+--train_batch_size=4 ^
+--gradient_accumulation_steps=1 ^
+--learning_rate=1e-6 ^
+--lr_scheduler="constant" ^
+--lr_warmup_steps=0 ^
+--max_train_steps=2000 ^
+--use_8bit_adam
