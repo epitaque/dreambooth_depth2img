@@ -10,3 +10,6 @@ At the time of writing, `StableDiffusionDepth2ImgPipeline` is supported only on 
 pip uninstall -y transformers
 pip install git+https://github.com/huggingface/transformers.git@main
 ```
+
+## Thanks
+Code for windows venv setup and utils/patch_bnb.py borrowed from https://github.com/victorchall/EveryDream2trainer

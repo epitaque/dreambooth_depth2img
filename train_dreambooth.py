@@ -4,6 +4,7 @@ import hashlib
 import itertools
 import math
 import os
+import re
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -101,7 +102,7 @@ def parse_args(input_args=None):
         "--instance_prompt",
         type=str,
         default=None,
-        required=True,
+        required=False,
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
@@ -329,6 +330,7 @@ class DreamBoothDataset(Dataset):
         self.depth_image_transforms = transforms.Compose(
             [
                 transforms.Resize(size // self.vae_scale_factor, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor()
             ]
         )
@@ -338,6 +340,7 @@ class DreamBoothDataset(Dataset):
     def __getitem__(self, index):
         example = {}
         instance_image_path = self.instance_images_path[index % self.num_instance_images]
+        instance_prompt = self.instance_prompt if self.instance_prompt not in ["", None] else re.sub(r'\..*$', '', instance_image_path.name)
         instance_depth_image_path = get_depth_image_path(instance_image_path)
         instance_image = Image.open(instance_image_path)
         instance_depth_image = Image.open(instance_depth_image_path)
@@ -346,7 +349,7 @@ class DreamBoothDataset(Dataset):
         example["instance_images"] = self.image_transforms(instance_image)
         example["instance_depth_images"] = self.depth_image_transforms(instance_depth_image)
         example["instance_prompt_ids"] = self.tokenizer(
-            self.instance_prompt,
+            instance_prompt,
             truncation=True,
             padding="max_length",
             max_length=self.tokenizer.model_max_length,
@@ -373,32 +376,34 @@ class DreamBoothDataset(Dataset):
         return example
 
 
-def collate_fn(examples, with_prior_preservation=False):
-    input_ids = [example["instance_prompt_ids"] for example in examples]
-    pixel_values = [example["instance_images"] for example in examples]
-    depth_values = [example["instance_depth_images"] for example in examples]
+class Collater:
+    def __init__(self, with_prior_preservation=False):
+        self.with_prior_preservation = with_prior_preservation
+    def __call__(self, examples):
+        input_ids = [example["instance_prompt_ids"] for example in examples]
+        pixel_values = [example["instance_images"] for example in examples]
+        depth_values = [example["instance_depth_images"] for example in examples]
 
-    # Concat class and instance examples for prior preservation.
-    # We do this to avoid doing two forward passes.
-    if with_prior_preservation:
-        input_ids += [example["class_prompt_ids"] for example in examples]
-        pixel_values += [example["class_images"] for example in examples]
-        depth_values += [example["class_depth_images"] for example in examples]
+        # Concat class and instance examples for prior preservation.
+        # We do this to avoid doing two forward passes.
+        if self.with_prior_preservation:
+            input_ids += [example["class_prompt_ids"] for example in examples]
+            pixel_values += [example["class_images"] for example in examples]
+            depth_values += [example["class_depth_images"] for example in examples]
 
-    pixel_values = torch.stack(pixel_values)
-    pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+        pixel_values = torch.stack(pixel_values)
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    depth_values = torch.stack(depth_values)
-    depth_values = depth_values.to(memory_format=torch.contiguous_format).float()
+        depth_values = torch.stack(depth_values)
+        depth_values = depth_values.to(memory_format=torch.contiguous_format).float()
 
-    input_ids = torch.cat(input_ids, dim=0)
+        input_ids = torch.cat(input_ids, dim=0)
 
-    batch = {
-        "input_ids": input_ids,
-        "pixel_values": pixel_values,
-        "depth_values": depth_values
-    }
-    return batch
+        return {
+            "input_ids": input_ids,
+            "pixel_values": pixel_values,
+            "depth_values": depth_values,
+        }
 
 
 class PromptDataset(Dataset):
@@ -632,11 +637,12 @@ def main(args):
         center_crop=args.center_crop,
     )
 
+    collater = Collater(with_prior_preservation=args.with_prior_preservation)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.train_batch_size,
         shuffle=True,
-        collate_fn=lambda examples: collate_fn(examples, args.with_prior_preservation),
+        collate_fn=collater,
         num_workers=1,
     )
 
