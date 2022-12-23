@@ -20,8 +20,6 @@ pip install -U -I --no-deps https://github.com/C43H66N12O12S2/stable-diffusion-w
 pip install pytorch-lightning==1.6.5
 pip install OmegaConf==2.2.3
 pip install numpy==1.23.5
-python utils/patch_bnb.py
-python utils/get_yamls.py
 GOTO :eof
 
 :ERROR
