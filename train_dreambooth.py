@@ -4,6 +4,7 @@ import hashlib
 import itertools
 import math
 import os
+import re
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -101,7 +102,7 @@ def parse_args(input_args=None):
         "--instance_prompt",
         type=str,
         default=None,
-        required=True,
+        required=False,
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
@@ -339,6 +340,7 @@ class DreamBoothDataset(Dataset):
     def __getitem__(self, index):
         example = {}
         instance_image_path = self.instance_images_path[index % self.num_instance_images]
+        instance_prompt = self.instance_prompt if self.instance_prompt not in ["", None] else re.sub(r'\..*$', '', instance_image_path.name)
         instance_depth_image_path = get_depth_image_path(instance_image_path)
         instance_image = Image.open(instance_image_path)
         instance_depth_image = Image.open(instance_depth_image_path)
@@ -347,7 +349,7 @@ class DreamBoothDataset(Dataset):
         example["instance_images"] = self.image_transforms(instance_image)
         example["instance_depth_images"] = self.depth_image_transforms(instance_depth_image)
         example["instance_prompt_ids"] = self.tokenizer(
-            self.instance_prompt,
+            instance_prompt,
             truncation=True,
             padding="max_length",
             max_length=self.tokenizer.model_max_length,
